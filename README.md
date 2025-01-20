@@ -81,6 +81,11 @@ steps:
 
 ### AI agent servie & AutoGen
 
+1) one autogen agent delegate the ai agent service's agent.
+[AzureAIAgentWithAutoGen-AsTools](./azure-ai-agent-service-with-autogen/1-AzureAIAgentWithAutoGen-AsTools.ipynb)
+
+2) delegated agents work with autogen agent.
+[2-AzureAIAgents_Intergration_With_AutoGen_Agents](./azure-ai-agent-service-with-autogen/2-AzureAIAgents_Intergration_With_AutoGen_Agents.ipynb)
 
 
 
