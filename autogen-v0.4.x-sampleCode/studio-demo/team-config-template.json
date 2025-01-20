@@ -1,0 +1,29 @@
+{
+  "version": "1.0.0",
+  "component_type": "team",
+  "name": "test2",
+  "participants": [
+    {
+      "component_type": "agent",
+      "name": "assistant_agent",
+      "agent_type": "AssistantAgent",
+      "system_message": "You are a helpful assistant. Solve tasks carefully. When done respond with TERMINATE",
+      "model_client": {
+        "component_type": "model",
+        "model": "gpt-4o-mini-2024-07-18",
+        "azure_deployment": "gpt-4o-mini",
+        "api_version": "2024-10-21",
+        "model_type": "AzureOpenAIChatCompletionClient",
+        "azure_endpoint": "https://XXXXX.openai.azure.com/",
+        "api_key": "XXXX"
+      },
+      "tools": []
+    }
+  ],
+  "team_type": "RoundRobinGroupChat",
+  "termination_condition": {
+    "component_type": "termination",
+    "termination_type": "MaxMessageTermination",
+    "max_messages": 3
+  }
+}
