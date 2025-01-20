@@ -2,6 +2,17 @@
 
 ## azure-ai-agent-service
 
+1. function call
+[1_function_call](./azure-ai-agent-service-sampleCode/notebooks/1_function_call.ipynb)
+
+2. code interpreter 
+[2_Code_Interpreter](./azure-ai-agent-service-sampleCode/notebooks/2_Code_Interpreter.ipynb)
+
+3. grounding with documents
+[3_Grounding_with_Documents](./azure-ai-agent-service-sampleCode/notebooks/3_Grounding_with_Documents.ipynb)
+
+4. grounding with bing search
+[4_Grounding_with_Bing_Search](./azure-ai-agent-service-sampleCode/notebooks/4_Grounding_with_Bing_Search.ipynb)
 
 ## AutoGen workshop 
 
