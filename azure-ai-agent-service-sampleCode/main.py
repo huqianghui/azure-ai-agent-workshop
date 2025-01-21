@@ -14,6 +14,8 @@ from azure.ai.projects.models import (
     FileSearchTool,
 )
 from azure.identity import DefaultAzureCredential
+from azure.monitor.opentelemetry import configure_azure_monitor
+from opentelemetry import trace
 from sales_data import SalesData
 from stream_event_handler import StreamEventHandler
 from terminal_colors import TerminalColors as tc
@@ -45,6 +47,9 @@ functions = AsyncFunctionTool(
     }
 )
 
+
+
+### instructions file
 INSTRUCTIONS_FILE = "/home/azureuser/azure-ai-agent-workshop/azure-ai-agent-service-sampleCode/instructions/instructions_function_calling.txt"
 INSTRUCTIONS_FILE = "/home/azureuser/azure-ai-agent-workshop/azure-ai-agent-service-sampleCode/instructions/instructions_code_interpreter.txt"
 INSTRUCTIONS_FILE = "/home/azureuser/azure-ai-agent-workshop/azure-ai-agent-service-sampleCode/instructions/instructions_file_search.txt"
@@ -152,19 +157,32 @@ async def main() -> None:
     Main function to run the agent.
     Example questions: Sales by region, top-selling products, total shipping costs by region, show as a pie chart.
     """
-    agent, thread = await initialize()
+    # Enable Azure Monitor tracing
+    application_insights_connection_string = await project_client.telemetry.get_connection_string()
+    if not application_insights_connection_string:
+        print("Application Insights was not enabled for this project.")
+        print("Enable it via the 'Tracing' tab in your AI Foundry project page.")
+        exit()
+    configure_azure_monitor(connection_string=application_insights_connection_string)
 
-    while True:
-        # Get user input prompt in the terminal using a pretty shade of green
-        print("\n")
-        prompt = input(f"{tc.GREEN}Enter your query (type exit to finish): {tc.RESET}")
-        if prompt.lower() == "exit":
-            break
-        if not prompt:
-            continue
-        await post_message(agent=agent, thread_id=thread.id, content=prompt, thread=thread)
+    scenario = os.path.basename(__file__)
+    tracer = trace.get_tracer(__name__)
 
-    await cleanup(agent, thread)
+    with tracer.start_as_current_span(scenario):
+
+        agent, thread = await initialize()
+
+        while True:
+            # Get user input prompt in the terminal using a pretty shade of green
+            print("\n")
+            prompt = input(f"{tc.GREEN}Enter your query (type exit to finish): {tc.RESET}")
+            if prompt.lower() == "exit":
+                break
+            if not prompt:
+                continue
+            await post_message(agent=agent, thread_id=thread.id, content=prompt, thread=thread)
+
+        await cleanup(agent, thread)
 
 
 if __name__ == "__main__":
