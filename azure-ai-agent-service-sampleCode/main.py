@@ -62,11 +62,13 @@ async def add_agent_tools():
     """Add tools for the agent."""
 
     # Add the functions tool
-    toolset.add(functions)
+    if not any(isinstance(tool, AsyncFunctionTool) and tool == functions for tool in toolset._tools):
+        toolset.add(functions)
 
     # Add the code interpreter tool
     code_interpreter = CodeInterpreterTool()
-    toolset.add(code_interpreter)
+    if not any(isinstance(tool, CodeInterpreterTool) for tool in toolset._tools):
+        toolset.add(code_interpreter)
 
     # Add the tents data sheet to a new vector data store
     vector_store = await utilities.create_vector_store(
@@ -75,7 +77,9 @@ async def add_agent_tools():
         vector_name_name="Contoso Product Information Vector Store",
     )
     file_search_tool = FileSearchTool(vector_store_ids=[vector_store.id])
-    toolset.add(file_search_tool)
+    if not any(isinstance(tool, FileSearchTool) for tool in toolset._tools):
+        toolset.add(file_search_tool)
+
 
     # Add the Bing grounding tool
     # bing_connection = await project_client.connections.get(connection_name=BING_CONNECTION_NAME)
