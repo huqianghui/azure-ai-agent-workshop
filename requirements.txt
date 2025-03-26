@@ -22,3 +22,4 @@ azure-core-tracing-opentelemetry~=1.0.0b11
 azure-monitor-opentelemetry~=1.6.4
 
 pydantic~=2.10.1
+rich
