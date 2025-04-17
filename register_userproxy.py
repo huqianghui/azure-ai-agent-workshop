@@ -1,7 +1,9 @@
 import asyncio
-from autogen_core._single_threaded_agent_runtime import SingleThreadedAgentRuntime
+
 from autogen_agentchat.agents import UserProxyAgent
 from autogen_core._agent_id import AgentId  # 确保 AgentId 的来源正确
+from autogen_core._single_threaded_agent_runtime import SingleThreadedAgentRuntime
+
 
 async def main():
     runtime = SingleThreadedAgentRuntime()
