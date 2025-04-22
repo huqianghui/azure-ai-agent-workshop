@@ -1,25 +1,21 @@
 import asyncio
 import logging
 import os
+import aiohttp
 
-from azure.ai.inference.tracing import AIInferenceInstrumentor
 from azure.ai.projects.aio import AIProjectClient
 from azure.ai.projects.models import (
     Agent,
     AgentThread,
-    AsyncFunctionTool,
-    AsyncToolSet,
-    CodeInterpreterTool,
-    FileSearchTool,
+    AsyncToolSet
 )
 from azure.identity import DefaultAzureCredential
 from azure.monitor.opentelemetry import configure_azure_monitor
 from opentelemetry import trace
 
-from sales_data import SalesData
-from stream_event_handler import StreamEventHandler
-from terminal_colors import TerminalColors as tc
-from utilities import Utilities
+from dotenv import load_dotenv
+load_dotenv('/Users/huqianghui/Downloads/1.github/azure-ai-agent-workshop/.env')
+
 
 logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger(__name__)
@@ -33,50 +29,11 @@ MAX_PROMPT_TOKENS = 10240
 TEMPERATURE = 0.2
 
 toolset = AsyncToolSet()
-sales_data = SalesData()
-utilities = Utilities()
 
 project_client = AIProjectClient.from_connection_string(
     credential=DefaultAzureCredential(),
     conn_str=PROJECT_CONNECTION_STRING,
 )
-
-functions = AsyncFunctionTool(
-    {
-        sales_data.async_fetch_sales_data_using_sqlite_query,
-    }
-)
-
-### instructions file
-INSTRUCTIONS_FILE = "/home/azureuser/azure-ai-agent-workshop/azure-ai-agent-service-sampleCode/instructions/instructions_function_calling.txt"
-INSTRUCTIONS_FILE = "/home/azureuser/azure-ai-agent-workshop/azure-ai-agent-service-sampleCode/instructions/instructions_code_interpreter.txt"
-INSTRUCTIONS_FILE = "/home/azureuser/azure-ai-agent-workshop/azure-ai-agent-service-sampleCode/instructions/instructions_file_search.txt"
-# INSTRUCTIONS_FILE = "/home/azureuser/azure-ai-agent-workshop/azure-ai-agent-service-sampleCode/instructions/instructions_code_bing_grounding.txt"
-
-# Instrument AI Inference API 
-AIInferenceInstrumentor().instrument() 
-
-async def add_agent_tools():
-    """Add tools for the agent."""
-
-    # Add the functions tool
-    if not any(isinstance(tool, AsyncFunctionTool) and tool == functions for tool in toolset._tools):
-        toolset.add(functions)
-
-    # Add the code interpreter tool
-    code_interpreter = CodeInterpreterTool()
-    if not any(isinstance(tool, CodeInterpreterTool) for tool in toolset._tools):
-        toolset.add(code_interpreter)
-
-    # Add the tents data sheet to a new vector data store
-    vector_store = await utilities.create_vector_store(
-        project_client,
-        files=[TENTS_DATA_SHEET_FILE],
-        vector_name_name="Contoso Product Information Vector Store",
-    )
-    file_search_tool = FileSearchTool(vector_store_ids=[vector_store.id])
-    if not any(isinstance(tool, FileSearchTool) for tool in toolset._tools):
-        toolset.add(file_search_tool)
 
 
 async def initialize() -> tuple[Agent,Agent, AgentThread]:
@@ -100,7 +57,6 @@ async def cleanup(agent: Agent, thread: AgentThread) -> None:
     """Cleanup the resources."""
     await project_client.agents.delete_thread(thread.id)
     await project_client.agents.delete_agent(agent.id)
-    await sales_data.close()
 
 
 async def post_message(thread_id: str, content: str, agent: Agent, thread: AgentThread) -> None:
@@ -109,23 +65,87 @@ async def post_message(thread_id: str, content: str, agent: Agent, thread: Agent
         await project_client.agents.create_message(
             thread_id=thread_id,
             role="user",
-            content=content,
-        )
+            content=content)
 
-        stream = await project_client.agents.create_stream(
-            thread_id=thread.id,
-            assistant_id=agent.id,
-            event_handler=StreamEventHandler(functions=functions, project_client=project_client, utilities=utilities),
-            max_completion_tokens=MAX_COMPLETION_TOKENS,
-            max_prompt_tokens=MAX_PROMPT_TOKENS,
-            temperature=TEMPERATURE,
-            instructions=agent.instructions,
-        )
-
-        async with stream as s:
-            await s.until_done()
     except Exception as e:
-        utilities.log_msg_purple(f"An error occurred posting the message: {str(e)}")
+        (f"An error occurred posting the message: {str(e)}")
+
+
+async def fetch_token():
+    credential = DefaultAzureCredential()
+    scope = "https://management.azure.com/.default"
+    token = credential.get_token(scope).token
+    credential.close()
+    return token
+
+async def create_workflow(
+    workflow_base_url: str,  # e.g. "{{workflowBaseUrl}}"
+    assistant_name: str,     # e.g. "{{assistant.name}}"
+    assistant_id: str        # e.g. "{{assistant.id}}"
+) -> dict:
+    """
+    Create a new workflow via HTTP POST. Uses DefaultAzureCredential for auth.
+    """
+    token = await fetch_token()
+
+    payload = {
+        "name": "tellHaikuWorkflow",
+        "Variables": [
+            {"Type": "messages", "Name": "HaikuOutput"},
+            {"Type": "thread",   "Name": "HaikuThread"}
+        ],
+        "States": [
+            {
+                "Name": "TellHaiku",
+                "Actors": [
+                    {
+                        "Agent": assistant_name,
+                        "AgentId": assistant_id,
+                        "HumanInLoopMode": "Always",
+                        "StreamOutput": True,
+                        "MessagesOut": "HaikuOutput",
+                        "Thread": "HaikuThread"
+                    }
+                ]
+            },
+            {"Name": "End", "IsFinal": True}
+        ],
+        "StartState": "TellHaiku",
+        "Transitions": [
+            {"From": "TellHaiku", "To": "End", "Condition": "HaikuOutput.Contains('Haiku')"}
+        ]
+    }
+
+    async with aiohttp.ClientSession() as session:
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {token}"
+        }
+        url = f"{workflow_base_url.rstrip('/')}/agents"
+        async with session.post(url, headers=headers, json=payload) as resp:
+            resp.raise_for_status()
+            return await resp.json()
+
+# New method to trigger a workflow run on a specific thread
+async def create_thread_run(
+    workflow_base_url: str,  # e.g. "{{workflowBaseUrl}}"
+    thread_id: str,          # e.g. "{{thread.id}}"
+    workflow_id: str         # e.g. "{{workflow.id}}"
+) -> dict:
+    """
+    Trigger a run for a workflow thread via POST /threads/{thread_id}/runs.
+    """
+    token = await fetch_token()
+    payload = {"assistant_id": workflow_id}
+    async with aiohttp.ClientSession() as session:
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {token}"
+        }
+        url = f"{workflow_base_url.rstrip('/')}/threads/{thread_id}/runs"
+        async with session.post(url, headers=headers, json=payload) as resp:
+            resp.raise_for_status()
+            return await resp.json()
 
 
 async def main() -> None:
@@ -146,20 +166,36 @@ async def main() -> None:
 
     with tracer.start_as_current_span(scenario):
 
-        student_agent,teacher_agent,thread = await initialize()
+        student_agent, teacher_agent, thread = await initialize()
 
-        while True:
-            # Get user input prompt in the terminal using a pretty shade of green
-            print("\n")
-            prompt = input(f"what's 1 and 1?")
-            if prompt.lower() == "exit":
-                break
-            if not prompt:
-                continue
-            await post_message(agent=student_agent, thread_id=thread.id, content=prompt, thread=thread)
+        # 测试 create_workflow，使用 student_agent 和默认认证方式
+        workflow_url = os.getenv("WORKFLOW_BASE_URL")
+        print("Creating sample workflow for Haiku...")
+        workflow_result = await create_workflow(
+            workflow_url,
+            student_agent.name,
+            student_agent.id
+        )
+        print(f"Workflow created: {workflow_result}")
 
-        await cleanup(agent, thread)
+        # 测试 create_thread_run，使用 student_agent 和默认认证方式
+        print("Creating thread run for workflow...")
+        thread_run_result = await create_thread_run(
+            workflow_url,
+            thread.id,
+            workflow_result["id"]
+        )
+        print(f"Thread run created: {thread_run_result}")
 
+        # while True:
+        #     # Get user input prompt in the terminal using a pretty shade of green
+        #     print("\n")
+        #     prompt = input(f"what's 1 and 1?")
+        #     if prompt.lower() == "exit":
+        #         break
+        #     if not prompt:
+        #         continue
+        #     await post_message(agent=student_agent, thread_id=thread.id, content=prompt, thread=thread)
 
 if __name__ == "__main__":
     print("Starting async program...")
