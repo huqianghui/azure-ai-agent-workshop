@@ -1,0 +1,203 @@
+# AI Foundry Agent Definition
+name: RecommendationAgent
+description: https://github.com/openai/swarm/tree/main/examples/personal_shopper
+model: gpt-4o-mini
+instructions: |-
+  You are a RecommendationAgent responsible for providing the most relevant product recommendations based on the user’s input criteria.
+  ### Rules:
+  - Focus only on analyzing the user's input and providing relevant product recommendations.
+  - If the user provides specific preferences (e.g., product type, features, price range, brand), match them to the most suitable products.
+  - If the user does not provide enough information (e.g., vague requests like “recommend a good phone”), ask for more specific preferences before generating recommendations.
+  ### Output Format:
+  - For a successful recommendation, return the following output:
+  ```recommendation
+  recommend_products({recommended_products})
+  ```
+  Where:
+  - `recommended_products` is a list of the most suitable product IDs or names based on the user’s input.
+  ### If the user provides insufficient details:
+  - Ask a direct clarification question using the following format:
+  ```ask
+  {
+    "question": "{your clarifying question here}"
+  }
+  ```
+  ### Examples:
+  - User: "Can you recommend a laptop under $1000 with good battery life?"
+  → `recommendation` → `recommend_products(["LaptopA", "LaptopB", "LaptopC"])`
+  - User: "I need a phone with a good camera for under $500."
+  → `recommendation` → `recommend_products(["PhoneX", "PhoneY", "PhoneZ"])`
+  - User: "Recommend me a gaming PC."
+  → `ask` → "Can you specify your budget and any preferred brands or features for the gaming PC?"
+  ### Rules:
+  - Do not make assumptions about the user's preferences unless explicitly mentioned.
+  - If more information is needed to provide relevant recommendations, always ask a direct question.
+  - Return only one type of output: `recommendation` or `ask`.
+
+
+  ### the function of ProductRecommendations's default value:
+
+  {
+    "cusId": "123",
+    "userInput": "請推薦顯示卡",
+    "sessionId": "billy_test",
+    "chatId": "1234",
+    "websiteCode": "tw",
+    "systemCode": "rog",
+    "appId": "",
+    "productLine": [],
+    "productName": []
+  }
+
+  if the user does not provide the parameters's vaule, use the default values for the require fields.
+top_p: 0
+temperature: 0
+tools:
+  - type: openapi
+    openapi:
+      name: ProductRecommendation
+      description: Product Recommendation Tool
+      spec:
+        openapi: 3.0.3
+        info:
+          title: AI Product Recommendation API
+          description: Returns product recommendations based on user input for ASUS ROG.
+          version: 1.0.0
+        servers:
+          - url: https://dev-aocc-ai-agent-recommendation.azurewebsites.net/api/v1
+        paths:
+          /recommendations:
+            post:
+              summary: Get product recommendations
+              operationId: ProductRecommendations
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      type: object
+                      required:
+                        - cusId
+                        - userInput
+                        - sessionId
+                        - chatId
+                        - websiteCode
+                        - systemCode
+                      properties:
+                        cusId:
+                          type: string
+                          example: '123'
+                        userInput:
+                          type: string
+                          example: 請推薦顯示卡
+                        sessionId:
+                          type: string
+                          example: billy_test
+                        chatId:
+                          type: string
+                          example: '1234'
+                        websiteCode:
+                          type: string
+                          example: tw
+                        systemCode:
+                          type: string
+                          example: rog
+                        appId:
+                          type: string
+                          example: ''
+                        productLine:
+                          type: array
+                          items:
+                            type: string
+                        productName:
+                          type: array
+                          items:
+                            type: string
+              responses:
+                '200':
+                  description: Successful response
+                  content:
+                    application/json:
+                      schema:
+                        type: object
+                        properties:
+                          status:
+                            type: string
+                            example: '200'
+                          message:
+                            type: string
+                            example: OK
+                          result:
+                            type: object
+                            properties:
+                              renderTime:
+                                type: integer
+                                example: 1745215825
+                              render:
+                                type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    renderId:
+                                      type: string
+                                      format: uuid
+                                    stream:
+                                      type: boolean
+                                    type:
+                                      type: string
+                                      example: avatarProduct
+                                    message:
+                                      type: string
+                                    remark:
+                                      type: array
+                                      items:
+                                        type: string
+                                    option:
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          brand:
+                                            type: string
+                                          modelOneId:
+                                            type: integer
+                                          mktName:
+                                            type: string
+                                          uri:
+                                            type: string
+                                          productUri:
+                                            type: string
+                                            format: uri
+                                          imageUri:
+                                            type: string
+                                            format: uri
+                                          displayPrice:
+                                            type: number
+                                            nullable: true
+                                          displayAmountOff:
+                                            type: number
+                                            nullable: true
+                                          displayRegularPrice:
+                                            type: number
+                                            nullable: true
+                                          buttonText:
+                                            type: string
+                                          displayKeySpec:
+                                            type: string
+                                          classifiedSpecifications:
+                                            type: array
+                                            items:
+                                              type: object
+        components: {}
+        tags: []
+        externalDocs:
+          description: Find out more about ASUS AI recommendation
+          url: https://www.asus.com
+      auth:
+        type: anonymous
+        security_scheme: {}
+tool_resources: {}
+semanticConditions: []
+inputs: []
+outputs: []
+id: asst_4RUigFnSQ9L92R0TqGYT5Onx

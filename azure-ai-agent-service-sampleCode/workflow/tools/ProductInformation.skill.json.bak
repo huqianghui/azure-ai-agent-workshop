@@ -1,0 +1,221 @@
+{
+  "type": "openapi",
+  "openapi": {
+    "name": "ProductSpecificationConsultation",
+    "description": "Product Specification Consultation Tool",
+    "spec": {
+      "openapi": "3.0.3",
+      "info": {
+        "title": "Product Specification Consultation API",
+        "description": "Returns detailed product specification for ASUS ROG based on user input.",
+        "version": "1.0.0"
+      },
+      "servers": [
+        {
+          "url": "https://dev-aocc-wisdomcore.azurewebsites.net/api/v1"
+        }
+      ],
+      "paths": {
+        "/agent/ms/productInfo": {
+          "post": {
+            "summary": "Get product specification details",
+            "operationId": "ProductInformation",
+            "requestBody": {
+              "required": true,
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "required": [
+                      "sessionId",
+                      "chatId",
+                      "appId",
+                      "aticket",
+                      "userInput",
+                      "websiteCode",
+                      "systemCode",
+                      "mainProducts",
+                      "stream",
+                      "intent"
+                    ],
+                    "properties": {
+                      "sessionId": {
+                        "type": "string"
+                      },
+                      "chatId": {
+                        "type": "string"
+                      },
+                      "appId": {
+                        "type": "string"
+                      },
+                      "aticket": {
+                        "type": "string"
+                      },
+                      "userInput": {
+                        "type": "string"
+                      },
+                      "websiteCode": {
+                        "type": "string"
+                      },
+                      "systemCode": {
+                        "type": "string"
+                      },
+                      "mainProducts": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "stream": {
+                        "type": "boolean"
+                      },
+                      "intent": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "responses": {
+              "200": {
+                "description": "Successful product specification response",
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "result": {
+                          "type": "object",
+                          "properties": {
+                            "userInput": {
+                              "type": "string"
+                            },
+                            "renderTime": {
+                              "type": "integer"
+                            },
+                            "render": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "renderId": {
+                                    "type": "string"
+                                  },
+                                  "stream": {
+                                    "type": "boolean"
+                                  },
+                                  "type": {
+                                    "type": "string"
+                                  },
+                                  "message": {
+                                    "type": "string"
+                                  },
+                                  "option": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "brand": {
+                                          "type": "string"
+                                        },
+                                        "modelOneId": {
+                                          "type": "integer"
+                                        },
+                                        "mktName": {
+                                          "type": "string"
+                                        },
+                                        "uri": {
+                                          "type": "string"
+                                        },
+                                        "productUri": {
+                                          "type": "string"
+                                        },
+                                        "imageUri": {
+                                          "type": "string"
+                                        },
+                                        "displayPrice": {
+                                          "type": "string"
+                                        },
+                                        "displayAmountOff": {
+                                          "type": "string"
+                                        },
+                                        "displayRegularPrice": {
+                                          "type": "string"
+                                        },
+                                        "buttonText": {
+                                          "type": "string"
+                                        },
+                                        "displayKeySpec": {
+                                          "type": "string"
+                                        },
+                                        "classifiedSpecifications": {
+                                          "type": "array",
+                                          "items": {
+                                            "type": "object",
+                                            "properties": {
+                                              "specificationKey": {
+                                                "type": "string"
+                                              },
+                                              "specificationContent": {
+                                                "type": "string"
+                                              }
+                                            }
+                                          }
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "remark": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            "logs": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "functionName": {
+                                    "type": "string"
+                                  },
+                                  "message": {
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "components": {},
+      "tags": [],
+      "externalDocs": {
+        "description": "Find out more about ASUS product specification service",
+        "url": "https://www.asus.com"
+      }
+    },
+    "auth": {
+      "type": "anonymous",
+      "security_scheme": {}
+    }
+  }
+}

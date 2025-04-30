@@ -1,0 +1,191 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "AI Product Recommendation API",
+    "description": "Returns product recommendations based on user input for ASUS ROG.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://dev-aocc-ai-agent-recommendation.azurewebsites.net/api/v1"
+    }
+  ],
+  "paths": {
+    "/recommendations": {
+      "post": {
+        "summary": "Get product recommendations",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "cusId",
+                  "userInput",
+                  "sessionId",
+                  "chatId",
+                  "websiteCode",
+                  "systemCode"
+                ],
+                "properties": {
+                  "cusId": {
+                    "type": "string",
+                    "example": "123"
+                  },
+                  "userInput": {
+                    "type": "string",
+                    "example": "請推薦顯示卡"
+                  },
+                  "sessionId": {
+                    "type": "string",
+                    "example": "billy_test"
+                  },
+                  "chatId": {
+                    "type": "string",
+                    "example": "1234"
+                  },
+                  "websiteCode": {
+                    "type": "string",
+                    "example": "tw"
+                  },
+                  "systemCode": {
+                    "type": "string",
+                    "example": "rog"
+                  },
+                  "appId": {
+                    "type": "string",
+                    "example": ""
+                  },
+                  "productLine": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "productName": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "200"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "result": {
+                      "type": "object",
+                      "properties": {
+                        "renderTime": {
+                          "type": "integer",
+                          "example": 1745215825
+                        },
+                        "render": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "renderId": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "stream": {
+                                "type": "boolean"
+                              },
+                              "type": {
+                                "type": "string",
+                                "example": "avatarProduct"
+                              },
+                              "message": {
+                                "type": "string"
+                              },
+                              "remark": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "option": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "brand": {
+                                      "type": "string"
+                                    },
+                                    "modelOneId": {
+                                      "type": "integer"
+                                    },
+                                    "mktName": {
+                                      "type": "string"
+                                    },
+                                    "uri": {
+                                      "type": "string"
+                                    },
+                                    "productUri": {
+                                      "type": "string",
+                                      "format": "uri"
+                                    },
+                                    "imageUri": {
+                                      "type": "string",
+                                      "format": "uri"
+                                    },
+                                    "displayPrice": {
+                                      "type": "number",
+                                      "nullable": true
+                                    },
+                                    "displayAmountOff": {
+                                      "type": "number",
+                                      "nullable": true
+                                    },
+                                    "displayRegularPrice": {
+                                      "type": "number",
+                                      "nullable": true
+                                    },
+                                    "buttonText": {
+                                      "type": "string"
+                                    },
+                                    "displayKeySpec": {
+                                      "type": "string"
+                                    },
+                                    "classifiedSpecifications": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,221 @@
+# AI Foundry Agent Definition
+name: ProductInfoAgent
+description: https://github.com/openai/swarm/tree/main/examples/personal_shopper
+model: gpt-4o-mini
+instructions: |-
+  You are a ProductInfoAgent responsible for providing accurate and detailed product information based on a user’s request.
+  Your job is to determine whether the user has provided specific product information (such as product ID, name, or model). Based on this, you must follow one of two workflows:
+
+  ### If the user has provided clear product information:
+  - Use the product lookup tool to fetch detailed product data.
+  - Return only the relevant product information, clearly and concisely.
+  Use the following output format:
+  ```info
+  product_info({product_reference})
+  ```
+  Where `product_reference` can be a product ID, name, or specific identifier provided by the user.
+
+  ### If the user has not provided enough product detail:
+  - Use a search tool (such as Bing or other product search index) to help identify the most likely matching product.
+  - Once a product is identified, proceed with product_info lookup and return the information.
+  Use the following search output format first:
+  ```search
+  search_product({query})
+  ```
+  After finding the correct product reference, proceed with:
+  ```info
+  product_info({product_reference})
+  ```
+
+  ### Rules:
+  - Do not make assumptions about the product unless the user gives explicit clues.
+  - If the user's input is ambiguous or unclear, ask a direct clarification question using the following format:
+  ```ask
+  {
+    "question": "{your clarifying question here}"
+  }
+  ```
+  - Do not share your internal reasoning or tool usage decisions with the user.
+  - Always ensure that the output includes only one of: `info`, `search`, or `ask`.
+
+  ### Examples:
+  - User: "Tell me about product ABC123."
+  → info → product_info(ABC123)
+
+  - User: "I'm looking for that wireless speaker from Sony, I don't remember the model."
+  → search → search_product(Sony wireless speaker)
+  → then → info(product_reference)
+
+  - User: "Can you give me details about that one blender?"
+  → ask → Ask: "Could you provide the product name or model number for the blender?" 
+
+
+  ### the funciton of ProdcutInformation's default value:
+  {
+    "sessionId": "28e8e7f6-93ba-4ca0-85c7-ecc024ff1b2b",
+    "chatId": "f0aaab67-ed2e-4a1b-b3d1-994ae6db6dd1",
+    "appId": "",
+    "aticket": "",
+    "websiteCode": "tw",
+    "systemCode": "rog",
+    "mainProducts": [],
+    "stream": false,
+    "intent": "specification-consultation",
+    "userInput": "請問 ROG Zephyrus G16 (2025) GU605 規格"
+  }
+
+  if the user does not provide the parameters's vaule, use the default values for the require fields.
+top_p: 0
+temperature: 0
+tools:
+  - type: openapi
+    openapi:
+      name: ProductSpecificationConsultation
+      description: Product Specification Consultation Tool
+      spec:
+        openapi: 3.0.3
+        info:
+          title: Product Specification Consultation API
+          description: Returns detailed product specification for ASUS ROG based on user input.
+          version: 1.0.0
+        servers:
+          - url: https://dev-aocc-wisdomcore.azurewebsites.net/api/v1
+        paths:
+          /agent/ms/productInfo:
+            post:
+              summary: Get product specification details
+              operationId: ProductInformation
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      type: object
+                      required:
+                        - sessionId
+                        - chatId
+                        - appId
+                        - aticket
+                        - userInput
+                        - websiteCode
+                        - systemCode
+                        - mainProducts
+                        - stream
+                        - intent
+                      properties:
+                        sessionId:
+                          type: string
+                        chatId:
+                          type: string
+                        appId:
+                          type: string
+                        aticket:
+                          type: string
+                        userInput:
+                          type: string
+                        websiteCode:
+                          type: string
+                        systemCode:
+                          type: string
+                        mainProducts:
+                          type: array
+                          items:
+                            type: string
+                        stream:
+                          type: boolean
+                        intent:
+                          type: string
+              responses:
+                '200':
+                  description: Successful product specification response
+                  content:
+                    application/json:
+                      schema:
+                        type: object
+                        properties:
+                          status:
+                            type: integer
+                          message:
+                            type: string
+                          result:
+                            type: object
+                            properties:
+                              userInput:
+                                type: string
+                              renderTime:
+                                type: integer
+                              render:
+                                type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    renderId:
+                                      type: string
+                                    stream:
+                                      type: boolean
+                                    type:
+                                      type: string
+                                    message:
+                                      type: string
+                                    option:
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          brand:
+                                            type: string
+                                          modelOneId:
+                                            type: integer
+                                          mktName:
+                                            type: string
+                                          uri:
+                                            type: string
+                                          productUri:
+                                            type: string
+                                          imageUri:
+                                            type: string
+                                          displayPrice:
+                                            type: string
+                                          displayAmountOff:
+                                            type: string
+                                          displayRegularPrice:
+                                            type: string
+                                          buttonText:
+                                            type: string
+                                          displayKeySpec:
+                                            type: string
+                                          classifiedSpecifications:
+                                            type: array
+                                            items:
+                                              type: object
+                                              properties:
+                                                specificationKey:
+                                                  type: string
+                                                specificationContent:
+                                                  type: string
+                                    remark:
+                                      type: array
+                                      items:
+                                        type: string
+                              logs:
+                                type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    functionName:
+                                      type: string
+                                    message:
+                                      type: string
+        components: {}
+        tags: []
+        externalDocs:
+          description: Find out more about ASUS product specification service
+          url: https://www.asus.com
+      auth:
+        type: anonymous
+        security_scheme: {}
+tool_resources: {}
+semanticConditions: []
+inputs: []
+outputs: []
+id: asst_qdC4isa2wpvCBHBs3pqNE7R5

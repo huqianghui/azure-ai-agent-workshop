@@ -1,0 +1,74 @@
+# AI Foundry Definition Language
+name: asus-workflow
+states:
+  - name: Master
+    actors:
+      - agent: MasterAgent
+        streamOutput: true
+        messagesIn:
+          - CustomerInquery
+          - ProductInfoOutput
+          - IntentsOutput
+          - ProductRecommendationOutput
+        messagesOut: MasterOutput
+        humanInLoopMode: onNoMessage
+  - name: Intents
+    actors:
+      - agent: IntentsAgent
+        streamOutput: true
+        messagesIn:
+          - MasterOutput
+        messagesOut: IntentsOutput
+        humanInLoopMode: never
+  - name: ProductInfo
+    actors:
+      - agent: ProductInfoAgent
+        streamOutput: true
+        messagesIn:
+          - MasterOutput
+          - IntentsOutput
+        messagesOut: ProductInfoOutput
+        humanInLoopMode: never
+  - name: ProductRecommendation
+    actors:
+      - agent: RecommendationAgent
+        streamOutput: true
+        messagesIn:
+          - MasterOutput
+          - IntentsOutput
+        messagesOut: ProductRecommendationOutput
+        humanInLoopMode: never
+  - name: End
+    isFinal: true
+transitions:
+  - from: Master
+    to: End
+    condition: MasterOutput.Contains('<finish>')
+  - from: Master
+    to: Intents
+    condition: MasterOutput.Contains('IntentsAgent')
+  - from: Intents
+    to: Master
+  - from: Master
+    to: ProductInfo
+    condition: MasterOutput.Contains('ProductInfoAgent')
+  - from: ProductInfo
+    to: Master
+  - from: Master
+    to: ProductRecommendation
+    condition: MasterOutput.Contains('RecommendationAgent')
+  - from: ProductRecommendation
+    to: Master
+variables:
+  - Type: messages
+    name: CustomerInquery
+  - Type: messages
+    name: IntentsOutput
+  - Type: messages
+    name: ProductRecommendationOutput
+  - Type: messages
+    name: ProductInfoOutput
+  - Type: messages
+    name: MasterOutput
+startstate: Master
+id: wf_agent_ab9BNcaKrmGxM4fnJMoTDRNN
