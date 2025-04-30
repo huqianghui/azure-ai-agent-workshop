@@ -1,0 +1,123 @@
+{
+    "name": "AsusWorkflow",
+    "states": [
+        {
+            "name": "Master",
+            "actors": [
+                {
+                    "agent": "MasterAgent",
+                    "streamOutput": True,
+                    "messagesIn": [
+                        "CustomerInquery",
+                        "ProductInfoOutput",
+                        "IntentsOutput",
+                        "ProductRecommendationOutput"
+                    ],
+                    "messagesOut": "MasterOutput",
+                    "humanInLoopMode": "onNoMessage"
+                }
+            ]
+        },
+        {
+            "name": "Intents",
+            "actors": [
+                {
+                    "agent": "IntentsAgent",
+                    "streamOutput": True,
+                    "messagesIn": [
+                        "MasterOutput"
+                    ],
+                    "messagesOut": "IntentsOutput",
+                    "humanInLoopMode": "never"
+                }
+            ]
+        },
+        {
+            "name": "ProductInfo",
+            "actors": [
+                {
+                    "agent": "ProductInfoAgent",
+                    "streamOutput": true,
+                    "messagesIn": [
+                        "MasterOutput",
+                        "IntentsOutput"
+                    ],
+                    "messagesOut": "ProductInfoOutput",
+                    "humanInLoopMode": "never"
+                }
+            ]
+        },
+        {
+            "name": "ProductRecommendation",
+            "actors": [
+                {
+                    "agent": "RecommendationAgent",
+                    "streamOutput": True,
+                    "messagesIn": [
+                        "MasterOutput",
+                        "IntentsOutput"
+                    ],
+                    "messagesOut": "ProductRecommendationOutput",
+                    "humanInLoopMode": "never"
+                }
+            ]
+        },
+        {
+            "name": "End",
+            "isFinal": True
+        }
+    ],
+    "transitions": [
+        {
+            "from": "Master",
+            "to": "End",
+            "condition": "MasterOutput.Contains('<finish>')"
+        },
+        {
+            "from": "Master",
+            "to": "Intents",
+            "condition": "MasterOutput.Contains('<intent>')"
+        },
+        {
+            "from": "Master",
+            "to": "ProductInfo",
+            "condition": "MasterOutput.Contains('<ProductInfo>')"
+        },
+        {
+            "from": "ProductInfo",
+            "to": "Master"
+        },
+        {
+            "from": "Master",
+            "to": "ProductRecommendation",
+            "condition": "MasterOutput.Contains('<ProductRecommendation>')"
+        },
+        {
+            "from": "ProductRecommendation",
+            "to": "Master"
+        }
+    ],
+    "variables": [
+        {
+            "Type": "messages",
+            "name": "CustomerInquery"
+        },
+        {
+            "Type": "messages",
+            "name": "IntentsOutput"
+        },
+        {
+            "Type": "messages",
+            "name": "ProductRecommendationOutput"
+        },
+        {
+            "Type": "messages",
+            "name": "ProductInfoOutput"
+        },
+        {
+            "Type": "messages",
+            "name": "MasterOutput"
+        }
+    ],
+    "startstate": "Master"
+}

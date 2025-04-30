@@ -2,6 +2,8 @@ import asyncio
 import logging
 import os
 import aiohttp
+import json
+import time
 
 from azure.ai.projects.aio import AIProjectClient
 from azure.ai.projects.models import (
@@ -89,32 +91,128 @@ async def create_workflow(
     token = await fetch_token()
 
     payload = {
-        "name": "tellHaikuWorkflow",
-        "Variables": [
-            {"Type": "messages", "Name": "HaikuOutput"},
-            {"Type": "thread",   "Name": "HaikuThread"}
-        ],
-        "States": [
-            {
-                "Name": "TellHaiku",
-                "Actors": [
-                    {
-                        "Agent": assistant_name,
-                        "AgentId": assistant_id,
-                        "HumanInLoopMode": "Always",
-                        "StreamOutput": True,
-                        "MessagesOut": "HaikuOutput",
-                        "Thread": "HaikuThread"
-                    }
-                ]
-            },
-            {"Name": "End", "IsFinal": True}
-        ],
-        "StartState": "TellHaiku",
-        "Transitions": [
-            {"From": "TellHaiku", "To": "End", "Condition": "HaikuOutput.Contains('Haiku')"}
-        ]
-    }
+    "name": "AsusWorkflow",
+    "states": [
+        {
+            "name": "Master",
+            "actors": [
+                {
+                    "agent": "MasterAgent",
+                    "streamOutput": True,
+                    "messagesIn": [
+                        "CustomerInquery",
+                        "ProductInfoOutput",
+                        "IntentsOutput",
+                        "ProductRecommendationOutput"
+                    ],
+                    "messagesOut": "MasterOutput",
+                    "humanInLoopMode": "onNoMessage"
+                }
+            ]
+        },
+        {
+            "name": "Intents",
+            "actors": [
+                {
+                    "agent": "IntentsAgent",
+                    "streamOutput": True,
+                    "messagesIn": [
+                        "MasterOutput"
+                    ],
+                    "messagesOut": "IntentsOutput",
+                    "humanInLoopMode": "never"
+                }
+            ]
+        },
+        {
+            "name": "ProductInfo",
+            "actors": [
+                {
+                    "agent": "ProductInfoAgent",
+                    "streamOutput": True,
+                    "messagesIn": [
+                        "MasterOutput",
+                        "IntentsOutput"
+                    ],
+                    "messagesOut": "ProductInfoOutput",
+                    "humanInLoopMode": "never"
+                }
+            ]
+        },
+        {
+            "name": "ProductRecommendation",
+            "actors": [
+                {
+                    "agent": "RecommendationAgent",
+                    "streamOutput": True,
+                    "messagesIn": [
+                        "MasterOutput",
+                        "IntentsOutput"
+                    ],
+                    "messagesOut": "ProductRecommendationOutput",
+                    "humanInLoopMode": "never"
+                }
+            ]
+        },
+        {
+            "name": "End",
+            "isFinal": True
+        }
+    ],
+    "transitions": [
+        {
+            "from": "Master",
+            "to": "End",
+            "condition": "MasterOutput.Contains('<finish>')"
+        },
+        {
+            "from": "Master",
+            "to": "Intents",
+            "condition": "MasterOutput.Contains('<intent>')"
+        },
+        {
+            "from": "Master",
+            "to": "ProductInfo",
+            "condition": "MasterOutput.Contains('<ProductInfo>')"
+        },
+        {
+            "from": "ProductInfo",
+            "to": "Master"
+        },
+        {
+            "from": "Master",
+            "to": "ProductRecommendation",
+            "condition": "MasterOutput.Contains('<ProductRecommendation>')"
+        },
+        {
+            "from": "ProductRecommendation",
+            "to": "Master"
+        }
+    ],
+    "variables": [
+        {
+            "Type": "messages",
+            "name": "CustomerInquery"
+        },
+        {
+            "Type": "messages",
+            "name": "IntentsOutput"
+        },
+        {
+            "Type": "messages",
+            "name": "ProductRecommendationOutput"
+        },
+        {
+            "Type": "messages",
+            "name": "ProductInfoOutput"
+        },
+        {
+            "Type": "messages",
+            "name": "MasterOutput"
+        }
+    ],
+    "startstate": "Master"
+}
 
     async with aiohttp.ClientSession() as session:
         headers = {
@@ -126,26 +224,163 @@ async def create_workflow(
             resp.raise_for_status()
             return await resp.json()
 
-# New method to trigger a workflow run on a specific thread
-async def create_thread_run(
-    workflow_base_url: str,  # e.g. "{{workflowBaseUrl}}"
-    thread_id: str,          # e.g. "{{thread.id}}"
-    workflow_id: str         # e.g. "{{workflow.id}}"
+# New method to get the status and results of a workflow run
+async def get_run_status(
+    workflow_base_url: str,
+    thread_id: str,
+    run_id: str
 ) -> dict:
     """
-    Trigger a run for a workflow thread via POST /threads/{thread_id}/runs.
+    Get the status of a workflow run.
     """
     token = await fetch_token()
-    payload = {"assistant_id": workflow_id}
+    
+    async with aiohttp.ClientSession() as session:
+        headers = {
+            "Authorization": f"Bearer {token}"
+        }
+        url = f"{workflow_base_url.rstrip('/')}/threads/{thread_id}/runs/{run_id}"
+        async with session.get(url, headers=headers) as resp:
+            resp.raise_for_status()
+            return await resp.json()
+
+# New method to get the messages from a thread
+async def get_thread_messages(
+    agent_base_url: str,
+    thread_id: str
+) -> dict:
+    """
+    Get messages from a thread.
+    """
+    token = await fetch_token()
+    
     async with aiohttp.ClientSession() as session:
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {token}"
         }
-        url = f"{workflow_base_url.rstrip('/')}/threads/{thread_id}/runs"
+        url = f"{agent_base_url.rstrip('/')}/threads/{thread_id}/messages?api-version=2024-10-21"
+        async with session.get(url, headers=headers) as resp:
+            resp.raise_for_status()
+            return await resp.json()
+
+# Modified create_thread_run to accept custom message
+async def create_thread_run(
+    workflow_base_url: str,
+    workflow_id: str,
+    user_message: str = "請問 ROG Zephyrus G16 (2025) GU605 規格是什麼？"
+) -> dict:
+    """
+    Trigger a run for a workflow thread via POST /threads/runs.
+    """
+    token = await fetch_token()
+    payload = {"assistant_id": workflow_id,
+               "thread": {
+                    "messages": [
+                    {"role": "user", "content": user_message},
+                    ]}
+                }
+    async with aiohttp.ClientSession() as session:
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {token}"
+        }
+        url = f"{workflow_base_url.rstrip('/')}/threads/runs"
         async with session.post(url, headers=headers, json=payload) as resp:
             resp.raise_for_status()
             return await resp.json()
+
+# New function to add a message to an existing thread and create a run
+async def add_message_and_run(
+    workflow_base_url: str,
+    agent_base_url: str,
+    workflow_id: str,
+    thread_id: str,
+    user_message: str
+) -> dict:
+    """
+    Add a message to an existing thread and create a new run.
+    First retrieves the message history to ensure full context is maintained.
+    """
+    token = await fetch_token()
+    
+    # First retrieve existing messages to maintain context
+    async with aiohttp.ClientSession() as session:
+        headers = {
+            "Authorization": f"Bearer {token}"
+        }
+        url = f"{agent_base_url.rstrip('/')}/threads/{thread_id}/messages?api-version=2024-10-21"
+        async with session.get(url, headers=headers) as resp:
+            resp.raise_for_status()
+            existing_messages = await resp.json()
+            print(f"Retrieved {len(existing_messages.get('data', []))} existing messages from thread")
+    
+    # Now add the new message to the thread
+    async with aiohttp.ClientSession() as session:
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {token}"
+        }
+        message_payload = {
+            "role": "user",
+            "content": user_message
+        }
+        url = f"{agent_base_url.rstrip('/')}/threads/{thread_id}/messages?api-version=2024-10-21"
+        async with session.post(url, headers=headers, json=message_payload) as resp:
+            resp.raise_for_status()
+            message_result = await resp.json()
+    
+    # Then create a new run on the existing thread
+    async with aiohttp.ClientSession() as session:
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {token}"
+        }
+        run_payload = {
+            "assistant_id": workflow_id
+        }
+        url = f"{workflow_base_url.rstrip('/')}/threads/{thread_id}/runs"
+        async with session.post(url, headers=headers, json=run_payload) as resp:
+            resp.raise_for_status()
+            return await resp.json()
+
+# Helper function to wait for run completion
+async def wait_for_run_completion(workflow_base_url: str, thread_id: str, run_id: str, poll_interval: int = 2):
+    """
+    Poll the run status until it's completed.
+    Returns the final run status.
+    """
+    while True:
+        run_status = await get_run_status(workflow_base_url,thread_id, run_id)
+        status = run_status.get('status')
+        
+        if status in ['completed', 'failed', 'cancelled', 'expired']:
+            return run_status
+        
+        print(f"Run status: {status}...")
+        await asyncio.sleep(poll_interval)
+
+# Helper function to display assistant messages in a readable format
+def display_thread_messages(messages):
+    """
+    Display thread messages in a nice format.
+    """
+    if not messages or 'data' not in messages:
+        print("No messages found")
+        return
+    
+    for msg in messages['data']:
+        role = msg.get('role', 'unknown')
+        content = msg.get('content', [])
+        
+        if role == "assistant":
+            print("\n\033[94m[Assistant]:\033[0m")
+        else:
+            print(f"\n\033[92m[{role.capitalize()}]:\033[0m")
+        
+        for item in content:
+            if item.get('type') == 'text':
+                print(item.get('text', {}).get('value', ''))
 
 
 async def main() -> None:
@@ -165,37 +400,78 @@ async def main() -> None:
     tracer = trace.get_tracer(__name__)
 
     with tracer.start_as_current_span(scenario):
-
-        student_agent, teacher_agent, thread = await initialize()
-
-        # 测试 create_workflow，使用 student_agent 和默认认证方式
+        # student_agent, teacher_agent, thread = await initialize()
         workflow_url = os.getenv("WORKFLOW_BASE_URL")
-        print("Creating sample workflow for Haiku...")
-        workflow_result = await create_workflow(
-            workflow_url,
-            student_agent.name,
-            student_agent.id
-        )
-        print(f"Workflow created: {workflow_result}")
+        agent_url = os.getenv("AGENT_BASE_URL")
+        workflow_id = "wf_agent_ab9BNcaKrmGxM4fnJMoTDRNN"  # Your workflow ID
 
-        # 测试 create_thread_run，使用 student_agent 和默认认证方式
-        print("Creating thread run for workflow...")
-        thread_run_result = await create_thread_run(
-            workflow_url,
-            thread.id,
-            workflow_result["id"]
-        )
-        print(f"Thread run created: {thread_run_result}")
+        # Variables to track conversation state
+        current_thread_id = None
 
-        # while True:
-        #     # Get user input prompt in the terminal using a pretty shade of green
-        #     print("\n")
-        #     prompt = input(f"what's 1 and 1?")
-        #     if prompt.lower() == "exit":
-        #         break
-        #     if not prompt:
-        #         continue
-        #     await post_message(agent=student_agent, thread_id=thread.id, content=prompt, thread=thread)
+        # Interactive mode for workflow runs
+        print("\n\033[1m=== Workflow Interactive Runner ===\033[0m")
+        print("Type 'exit' to quit, 'new' to start a new conversation, or enter your question.")
+        
+        while True:
+            user_input = input("\n\033[93mEnter your question: \033[0m")
+            
+            if user_input.lower() == 'exit':
+                break
+                
+            if not user_input.strip():
+                continue
+
+            # Check if user wants to start a new conversation
+            if user_input.lower() == 'new':
+                current_thread_id = None
+                print("Starting a new conversation thread.")
+                continue
+            
+            try:
+                run_id = None
+                
+                if current_thread_id is None:
+                    # No existing thread, create a new one
+                    print("\nCreating new thread and workflow run...")
+                    thread_run_result = await create_thread_run(
+                        workflow_url,
+                        workflow_id,
+                        user_input
+                    )
+                    
+                    run_id = thread_run_result.get('id')
+                    current_thread_id = thread_run_result.get('thread_id')
+                    print(f"New thread created with ID: {current_thread_id}")
+                    print(f"Thread run created with ID: {run_id}")
+                else:
+                    # Continue with existing thread
+                    print(f"\nContinuing conversation in existing thread: {current_thread_id}")
+                    thread_run_result = await add_message_and_run(
+                        workflow_url,
+                        agent_url,
+                        workflow_id,
+                        current_thread_id,
+                        user_input
+                    )
+                    
+                    run_id = thread_run_result.get('id')
+                    print(f"Added message to existing thread and created run: {run_id}")
+                
+                # Wait for the run to complete
+                print("Waiting for workflow to complete...")
+                final_status = await wait_for_run_completion(workflow_url, current_thread_id, run_id)
+                print(f"Run completed with status: {final_status.get('status')}")
+                
+                # Get and display the thread messages
+                print("\nGetting workflow results...")
+                thread_messages = await get_thread_messages(agent_url, current_thread_id)
+                print("\n\033[1m=== Workflow Results ===\033[0m")
+                display_thread_messages(thread_messages)
+                
+            except Exception as e:
+                print(f"Error running workflow: {e}")
+                print("Starting a new thread for next input.")
+                current_thread_id = None
 
 if __name__ == "__main__":
     print("Starting async program...")
